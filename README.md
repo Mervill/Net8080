@@ -8,7 +8,7 @@ Package:         40-pin DIP
 Released:        April 1974
 ```
 
-The lengendary microprocessor in all it's 8 bit glory. Based on code 
+The legendary microprocessor in all it's 8 bit glory. Based on code 
 from https://github.com/begoon/i8080-js
 
 ## License
