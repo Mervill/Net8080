@@ -46,9 +46,7 @@ namespace Net8080
 
 			// Copy the program to memory
 			i8080.Memory.copy_to(bytes.Select((b) => (int)b).ToArray(), 0x0100);
-
-			// The first 256 bytes if the 8080 usually contains 
-
+            
 			// The first 256 bytes if the 8080 usually contain the interrupt table (RST 0 - 7) 
 			// and system functions for CP/M or some other BDOS. The interface into BDOS involves
 			// setting the 'C' register to a software interrupt, then unconditionally CALL
