@@ -1,12 +1,4 @@
-Net8080/bin/Debug/ASM/8080EX1.COM
-Net8080/bin/Debug/ASM/8080PRE.COM
-Net8080/bin/Debug/ASM/CPUTEST.COM
-Net8080/bin/Debug/ASM/TEST.COM
-Net8080/bin/Debug/Intel8080.cgt
-Net8080/bin/Debug/i8080.exe.config
-Net8080/bin/Debug/i8080.vshost.exe.config
-Net8080/bin/Debug/i8080.vshost.exe.manifest
-Net8080/bin/Debug/testcode.out
-Net8080/bin/Debug/testcode.txt
-Net8080/obj/
-Net8080/bin/
+*.csproj.user
+.vs/
+*/bin/
+*/obj/
