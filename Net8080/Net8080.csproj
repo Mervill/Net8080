@@ -6,7 +6,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="App.config" />
     <None Include="ASM\8080EX1.COM">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

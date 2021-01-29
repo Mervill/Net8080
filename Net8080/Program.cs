@@ -41,13 +41,13 @@ namespace Net8080
 			var i8080 = new Intel8080(new MemoryBus(), new InputOutputBus());
 			var bytes = File.ReadAllBytes(path);
 
-			Console.WriteLine(string.Format("{0}: size {1}", path.Split('/').Last(), bytes.Length));
+			Console.WriteLine($"{path.Split('/').Last()}: size {bytes.Length}");
 			Console.WriteLine("--------------------");
 
 			// Copy the program to memory
 			i8080.Memory.copy_to(bytes.Select((b) => (int)b).ToArray(), 0x0100);
             
-			// The first 256 bytes if the 8080 usually contain the interrupt table (RST 0 - 7) 
+			// The first 256 bytes of the 8080 usually contain the interrupt table (RST 0 - 7) 
 			// and system functions for CP/M or some other BDOS. The interface into BDOS involves
 			// setting the 'C' register to a software interrupt, then unconditionally CALL
 			// memory location 5 (the CP/M entrypoint). The test scripts make use of interrupt
@@ -66,8 +66,8 @@ namespace Net8080
 			// use, so classic 8080 programs usually start at 0x100
 			i8080.ProgramCounter = (0x100); // Jump to entrypoint
 
-			File.Delete(path + ".LOG");
-			var writer = File.CreateText(path + ".LOG");
+			File.Delete($"{path}.LOG");
+			var writer = File.CreateText($"{path}.LOG");
 			writer.AutoFlush = true;
 			
 			while(true)
@@ -75,8 +75,8 @@ namespace Net8080
 				var pc = i8080.ProgramCounter;
 				if(i8080.Memory.read((UInt16)pc) == 0x76)
 				{
-					writer.Write("HLT at " + pc);
-					Console.Write("HLT at " + pc);
+					writer.Write($"HLT at {pc}");
+					Console.Write($"HLT at {pc}");
 					break;
 				}
 
@@ -90,11 +90,11 @@ namespace Net8080
 							if (supress_bell)
 							{
 								if (mem != 7)
-									Console.Write(String.Format("{0}", (char) mem));
+									Console.Write($"{(char)mem}");
 							}
 							else
 							{
-								Console.Write(String.Format("{0}", (char)mem));
+								Console.Write($"{(char)mem}");
 							}
 						}
 
@@ -106,11 +106,11 @@ namespace Net8080
 						if (supress_bell)
 						{
 							if (mem != 7)
-								Console.Write(String.Format("{0}", (char) mem));
+								Console.Write($"{(char)mem}");
 						}
 						else
 						{
-							Console.Write(String.Format("{0}", (char)mem));
+							Console.Write($"{(char)mem}");
 						}
 					}
 				}
@@ -119,9 +119,9 @@ namespace Net8080
 				if(i8080.ProgramCounter == 0)
 				{
 					writer.WriteLine();
-					writer.WriteLine("[Jump to 0000 from " + pc.ToString("X4") + "]");
+					writer.WriteLine($"[Jump to 0000 from {pc:X4}]");
 					Console.WriteLine();
-					Console.WriteLine("[Jump to 0000 from " + pc.ToString("X4") + "]");
+					Console.WriteLine($"[Jump to 0000 from {pc:X4}]");
 					break;
 				}
 
@@ -136,15 +136,15 @@ namespace Net8080
 			var intel8080 = new Intel8080(new MemoryBus(), new InputOutputBus());
 			var bytes = System.IO.File.ReadAllBytes(path);
 
-			Console.WriteLine(string.Format("{0}: size {1}", path.Split('/').Last(), bytes.Length));
+			Console.WriteLine($"{path.Split('/').Last()}: size {bytes.Length}");
 
 			intel8080.Memory.copy_to(bytes.Select((b) => (int)b).ToArray(), 0x0100);
 			intel8080.Memory.write(5, 0xC9);
 
 			intel8080.ProgramCounter = (0x100);
 
-			File.Delete(path + ".LOG");
-			var writer = File.CreateText(path + ".LOG");
+			File.Delete($"{path}.LOG");
+			var writer = File.CreateText($"{path}.LOG");
 			writer.AutoFlush = true;
 
 			Stopwatch masterSW = new Stopwatch();
@@ -159,8 +159,8 @@ namespace Net8080
 				var pc = intel8080.ProgramCounter;
 				if (intel8080.Memory.read((UInt16)pc) == 0x76)
 				{
-					writer.Write("HLT at " + pc.ToString());
-					Console.Write("HLT at " + pc.ToString());
+					writer.Write($"HLT at {pc}");
+					Console.Write($"HLT at {pc}");
 					break;
 				}
 
@@ -186,7 +186,7 @@ namespace Net8080
 				Console.Clear();
 				
 				Console.WriteLine(string.Format(
-					"PC {0,5} {0:X4}\tSP {1,5} {1:X4}",
+					"PC {0,5} {0:X4} SP {1,5} {1:X4}",
 					(UInt16)intel8080.ProgramCounter,
 					(UInt16)intel8080.StackPointer));
 
@@ -212,19 +212,19 @@ namespace Net8080
 				if (intel8080.ProgramCounter == 0)
 				{
 					writer.WriteLine();
-					writer.WriteLine("[!] Jump to 0000 from " + pc.ToString("X4"));
+					writer.WriteLine($"[!] Jump to 0000 from {pc:X4}");
 					Console.WriteLine();
-					Console.WriteLine("[!] Jump to 0000 from " + pc.ToString("X4"));
+					Console.WriteLine($"[!] Jump to 0000 from {pc:X4}");
 					break;
 				}
 				
 			}
 
-			Console.WriteLine(string.Format("Instruction Cycles: {0}", clockCycles));
-			Console.WriteLine(string.Format("Clock Cycles:       {0}", totalTicks));
+			Console.WriteLine($"Instruction Cycles: {clockCycles}");
+			Console.WriteLine($"Clock Cycles:       {totalTicks}");
 
 			masterSW.Stop();
-			Console.WriteLine(string.Format("Stopwatch: {0} ms / {1} ticks", masterSW.ElapsedMilliseconds, masterSW.ElapsedTicks));
+			Console.WriteLine($"Stopwatch: {masterSW.ElapsedMilliseconds} ms / {masterSW.ElapsedTicks} ticks");
 
 			GC.Collect();
 		}
