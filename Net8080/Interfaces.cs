@@ -24,12 +24,12 @@ namespace Net8080
 
         int[] mem = new int[0x10000];
 
-        public int read(int addr)
+        public virtual int read(int addr)
         {
             return mem[addr & 0xFFFF];
         }
 
-        public void write(int addr, int w8)
+        public virtual void write(int addr, int w8)
         {
             mem[addr & 0xFFFF] = w8;
         }
@@ -49,6 +49,30 @@ namespace Net8080
             return mem.ToList().Select(i => BitConverter.GetBytes(i)[0]).ToArray();
         }
 
+    }
+
+    public class MarkingMemoryBus : MemoryBus
+    {
+        public bool[] did_read = new bool[0x10000];
+        public bool[] did_write = new bool[0x10000];
+
+        public override int read(int addr)
+        {
+            did_read[addr & 0xFFFF] = true;
+            return base.read(addr);
+        }
+
+        public override void write(int addr, int w8)
+        {
+            did_write[addr & 0xFFFF] = true;
+            base.write(addr, w8);
+        }
+
+        public void ClearMarks()
+        {
+            did_read = new bool[0x10000];
+            did_write = new bool[0x10000];
+        }
     }
 
     public class InputOutputBus : IInputOutputBus
