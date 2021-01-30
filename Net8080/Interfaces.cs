@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using System.Collections.Generic;
 
 namespace Net8080
 {
@@ -51,6 +52,84 @@ namespace Net8080
 
     }
 
+    public class PermissibleMemoryBus : MemoryBus
+    {
+        [Flags]
+        public enum Type
+        {
+            None,
+            Read,
+            Write,
+            Both = Read | Write
+        }
+
+        public struct Range
+        {
+            public int Lower { get; private set; }
+            public int Upper { get; private set; }
+
+            public Range(int lower, int upper)
+            {
+                if (lower >= upper)
+                    throw new ArgumentException($"A range must be {nameof(lower)} < {nameof(upper)}", nameof(lower));
+
+                Lower = lower;
+                Upper = upper;
+            }
+
+            public bool InRange(int value)
+                => Lower <= value && value <= Upper;
+        }
+
+        public Dictionary<Range, Type> Areas = new Dictionary<Range, Type>();
+
+        public void SetRange(int lower, int upper, Type flags)
+        {
+            Areas.Add(new Range(lower, upper), flags);
+        }
+
+        public void UnsetRange(int lower, int upper)
+        {
+            Areas.Remove(new Range(lower, upper));
+        }
+
+        public override int read(int addr)
+        {
+            if (HasFlag(addr, Type.Read))
+            {
+                return base.read(addr);
+            }
+            else
+            {
+                throw new IndexOutOfRangeException();
+            }
+        }
+
+        public override void write(int addr, int w8)
+        {
+            if (HasFlag(addr, Type.Write))
+            {
+                base.write(addr, w8);
+            }
+            else
+            {
+                throw new IndexOutOfRangeException();
+            }
+        }
+
+        public bool HasFlag(int addr, Type flag)
+        {
+            foreach (var kvp in Areas)
+            {
+                if (kvp.Key.InRange(addr))
+                {
+                    return kvp.Value.HasFlag(flag);
+                }
+            }
+            return false;
+        }
+    }
+
     public class MarkingMemoryBus : MemoryBus
     {
         public bool[] did_read = new bool[0x10000];
@@ -75,22 +154,20 @@ namespace Net8080
         }
     }
 
-    public class InputOutputBus : IInputOutputBus
+    public class EmptyIOBus : IInputOutputBus
     {
-
-        public void interrupt(bool v)
+        public virtual void interrupt(bool v)
         {
-
         }
 
-        public int input(int devicenum)
+        public virtual int input(int devicenum)
         {
             return 0;
         }
 
-        public void output(int devicenum, int value)
+        public virtual void output(int devicenum, int value)
         {
-
         }
     }
+
 }
