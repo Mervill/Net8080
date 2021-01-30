@@ -13,4 +13,22 @@
     <ProjectReference Include="..\Net8080\Net8080.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="..\asm\8080EX1.COM" Link="asm\8080EX1.COM">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\asm\8080PRE.COM" Link="asm\8080PRE.COM">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\asm\CPUTEST.COM" Link="asm\CPUTEST.COM">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\asm\TEST.COM" Link="asm\TEST.COM">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\asm\umpire.com" Link="asm\umpire.com">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+  
 </Project>
