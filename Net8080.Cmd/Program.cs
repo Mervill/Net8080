@@ -37,6 +37,11 @@ namespace Net8080.Cmd
 							RunFile(o.Path);
 							break;
 						}
+						case "watch":
+                        {
+							Watch(o.Path);
+							break;
+                        }
 						case "tests":
                         {
 							BasicTests();
@@ -208,21 +213,27 @@ namespace Net8080.Cmd
 			var time = $"; Time {new TimeSpan(masterSW.ElapsedTicks)}";
 			writer.Write(time);
 			Console.WriteLine(time);
-
-			GC.Collect();
 		}
 
 		static void Watch(string path)
 		{
-			var intel8080 = new Intel8080(new MemoryBus(), new EmptyIOBus());
-			var bytes = System.IO.File.ReadAllBytes(path);
+			var bytes = File.ReadAllBytes(path);
 
+			Console.WriteLine($"; --------------------");
 			Console.WriteLine($"{path.Split('/').Last()}: size {bytes.Length}");
 
-			intel8080.Memory.copy_to(bytes.Select((b) => (int)b).ToArray(), 0x0100);
-			intel8080.Memory.write(5, 0xC9);
+			var memBus = new MemoryBus();
+			var ioBus = new EmptyIOBus();
+			var intel8080 = new Intel8080(memBus, ioBus);
 
-			intel8080.ProgramCounter = (0x100);
+			const int bdos_entrypoint = 0x0005;
+			const int opcode_ret = 0x00C9;
+			intel8080.Memory.write(bdos_entrypoint, opcode_ret);
+
+			const int tpa_start = 0x0100;
+			intel8080.Memory.copy_to(bytes.Select((b) => (int)b).ToArray(), tpa_start);
+			intel8080.ProgramCounter = tpa_start;
+			intel8080.StackPointer = 0xF1FF;
 
 			File.Delete($"{path}.LOG");
 			var writer = File.CreateText($"{path}.LOG");
@@ -240,10 +251,11 @@ namespace Net8080.Cmd
 				clockCycles++;
 
 				var pc = intel8080.ProgramCounter;
-				if (intel8080.Memory.read((UInt16)pc) == 0x76)
+				const int opcode_hlt = 0x0076;
+				if (intel8080.Memory.read((UInt16)pc) == opcode_hlt)
 				{
-					writer.Write($"HLT at {pc}");
-					Console.Write($"HLT at {pc}");
+					writer.Write($"; HLT at {pc}");
+					Console.Write($"; HLT at {pc}");
 					break;
 				}
 
@@ -314,8 +326,6 @@ namespace Net8080.Cmd
 
 			masterSW.Stop();
 			Console.WriteLine($"Stopwatch: {masterSW.ElapsedMilliseconds} ms / {masterSW.ElapsedTicks} ticks");
-
-			GC.Collect();
 		}
 
 	}
