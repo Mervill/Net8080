@@ -30,11 +30,27 @@ namespace Net8080.Cmd
                 }
 				else
                 {
-
+					switch (o.Mode)
+                    {
+						case "run":
+                        {
+							RunFile(o.Path);
+							break;
+						}
+						case "tests":
+                        {
+							BasicTests();
+							break;
+						}
+						default:
+                        {
+							Console.WriteLine($"Unknown mode: {o.Mode}");
+							break;
+                        }
+                    }
                 }
 			});
-			BasicTests();
-			//Watch("./ASM/CPUTEST.COM");
+
 			Console.WriteLine("program complete");
 			Console.ReadLine();
 		}
@@ -44,9 +60,9 @@ namespace Net8080.Cmd
 			Console.WriteLine("Intel 8080/C# test");
 
 			string[] files = {
-				"./ASM/TEST.COM",
-				"./ASM/CPUTEST.COM",
-				"./ASM/8080PRE.COM",
+				"./asm/TEST.COM",
+				"./asm/CPUTEST.COM",
+				"./asm/8080PRE.COM",
 			};
 
 			foreach (var file in files)
@@ -55,92 +71,124 @@ namespace Net8080.Cmd
 			Console.WriteLine("> press any key to run extended test (+14 min)");
 			Console.ReadLine();
 
-			RunFile("./ASM/8080EX1.COM");
+			//RunFile("./asm/umpire.com");
+			RunFile("./asm/8080EX1.COM");
 		}
 
 		static void RunFile(string path)
 		{
-			var i8080 = new Intel8080(new MemoryBus(), new InputOutputBus());
 			var bytes = File.ReadAllBytes(path);
 
 			Console.WriteLine($"; --------------------");
 			Console.WriteLine($"; {path.Split('/').Last()}: size {bytes.Length}");
 
-			// Copy the program to memory
-			i8080.Memory.copy_to(bytes.Select((b) => (int)b).ToArray(), 0x0100);
+			var memBus = new PermissibleMemoryBus();
+			memBus.SetRange(0x0000, 0xFFFF, PermissibleMemoryBus.Type.Both);
 
-			// The first 256 bytes of the 8080 usually contain the interrupt table (RST 0 - 7) 
-			// and system functions for CP/M or some other BDOS. The interface into BDOS involves
-			// setting the 'C' register to a software interrupt, then unconditionally CALL
-			// memory location 5 (the CP/M entrypoint). The test scripts make use of interrupt
-			// 0x02, which takes the value of E as a char code and prints it to the screen. 
-			//
-			// As asm:
-			// 
-			//  MOV	E, A    ; Move the value of A (a char code) into E
-			//  MVI C, 2    ; Set the value of C to 2 (CP/M software interrupt for print)
-			//  CALL 5      ; Return to the CP/M BDOS
-			//
-			//
-			i8080.Memory.write(5, 0xC9); // Inject RET at 0x0005 to handle "CALL 5".
+			var ioBus = new EmptyIOBus();
 
-			// First 256 bytes of memory are reserved for system
-			// use, so classic 8080 programs usually start at 0x100
-			i8080.ProgramCounter = (0x100); // Jump to entrypoint
+			var i8080 = new Intel8080(memBus, ioBus);
+			
+			// We are going to fake all the required CP/M BDOS functions by inspecting the
+			// state of the Program Counter after each processor tick instead of using either a
+			// custom assembly shim (maybe coming soon!) or trying to actually load CP/M itself (?!)
+			//
+			// A typical CP/M system call looks like this in user code:
+			//
+			// MOV  E, paramater ; Function param goes in E
+			// MVI  C, function  ; Function index goes in C
+			// CALL 5            ; Call the CP/M BDOS entrypoint
+			//
+			// Normally 0x0005 contains the instruction JMP 0xF200 which jumps to the higest memory
+			// location in the CP/M BDOS memory area (0x0400-0xF200) where the system functions 
+			// are implemented.
+			//
+			// For our purposes, we just need to return from 0x0005 and the user code should be none
+			// the wiser.
+			const int bdos_entrypoint = 0x0005;
+			const int opcode_ret      = 0x00C9;
+			i8080.Memory.write(bdos_entrypoint, opcode_ret); // Inject RET at 0x0005 to handle "CALL 5"
 
+			// CP/M user programs are loaded into the CP/M TPA (Transient Program Area) starting
+			// at 0x0100 and extending to a max of 0xDC00 for 64k systems. The progam counter is
+			// then also set to 0x0100 and execution of the user program begins.
+			const int tpa_start = 0x0100;
+			i8080.Memory.copy_to(bytes.Select((b) => (int)b).ToArray(), tpa_start);
+			i8080.ProgramCounter = tpa_start;
+			i8080.StackPointer = 0xF1FF;
+
+			memBus.UnsetRange(0x0000, 0xFFFF);
+			memBus.SetRange(0xF200, 0xFFFF, PermissibleMemoryBus.Type.None); // BIOS
+			memBus.SetRange(0xE400, 0xF1FF, PermissibleMemoryBus.Type.Both); // BDOS
+			memBus.SetRange(0xDC00, 0xE3FF, PermissibleMemoryBus.Type.None); // CCP (Command Line Interpreter)
+			memBus.SetRange(0x0100, 0xDBFF, PermissibleMemoryBus.Type.Both); // TPA (Transient Program Area)
+			memBus.SetRange(0x0000, 0x00FF, PermissibleMemoryBus.Type.Read); // Low Storage
+			
 			File.Delete($"{path}.LOG");
 			var writer = File.CreateText($"{path}.LOG");
 			writer.AutoFlush = true;
 
-			Stopwatch masterSW = new Stopwatch();
+			var masterSW = new Stopwatch();
 			masterSW.Start();
 
 			while (true)
 			{
 				var pc = i8080.ProgramCounter;
-				if (i8080.Memory.read((UInt16)pc) == 0x76)
+				const int opcode_hlt = 0x0076;
+				if (i8080.Memory.read((UInt16)pc) == opcode_hlt)
 				{
 					writer.Write($"; HLT at {pc}");
 					Console.Write($"; HLT at {pc}");
 					break;
 				}
 
-				if (pc == 0x0005)
+				if (pc == bdos_entrypoint)
 				{
-					if (i8080.REG_C == 9)
+					var functionIndex = i8080.REG_C;
+                    switch (functionIndex)
                     {
-						for (UInt16 i = (UInt16)i8080.REG16_DE; i8080.Memory.read(i) != 0x24; i++)
-						{
-							writer.Write((char)i8080.Memory.read(i));
-							var mem = i8080.Memory.read(i);
+						case 2:
+                        {
+							var charCode = i8080.REG_E;
+							writer.Write((char)charCode);
 							if (supress_bell)
 							{
-								if (mem != 7)
-									Console.Write($"{(char)mem}");
+								if (charCode != 7)
+									Console.Write($"{(char)charCode}");
 							}
 							else
 							{
-								Console.Write($"{(char)mem}");
+								Console.Write($"{(char)charCode}");
 							}
+							break;
 						}
-					}
-					else if (i8080.REG_C == 2)
-					{
-						writer.Write((char)i8080.REG_E);
-						var mem = i8080.REG_E;
-						if (supress_bell)
-						{
-							if (mem != 7)
-								Console.Write($"{(char)mem}");
+						case 9:
+                        {
+							for (UInt16 i = (UInt16)i8080.REG16_DE; i8080.Memory.read(i) != 0x24; i++)
+							{
+								var charCode = i8080.Memory.read(i);
+								writer.Write((char)charCode);
+								if (supress_bell)
+								{
+									if (charCode != 7)
+										Console.Write($"{(char)charCode}");
+								}
+								else
+								{
+									Console.Write($"{(char)charCode}");
+								}
+							}
+							break;
 						}
-						else
-						{
-							Console.Write($"{(char)mem}");
+						case 11:
+                        {
+							i8080.REG_A = 0;
+							break;
 						}
-					}
-					else
-                    {
-						throw new NotImplementedException();
+						default:
+                        {
+							throw new NotImplementedException();
+                        }
 					}
 				}
 
@@ -155,14 +203,18 @@ namespace Net8080.Cmd
 				}
 
 			}
-			Console.WriteLine($"; Time {new TimeSpan(masterSW.ElapsedTicks)}");
+
+			masterSW.Stop();
+			var time = $"; Time {new TimeSpan(masterSW.ElapsedTicks)}";
+			writer.Write(time);
+			Console.WriteLine(time);
 
 			GC.Collect();
 		}
 
 		static void Watch(string path)
 		{
-			var intel8080 = new Intel8080(new MemoryBus(), new InputOutputBus());
+			var intel8080 = new Intel8080(new MemoryBus(), new EmptyIOBus());
 			var bytes = System.IO.File.ReadAllBytes(path);
 
 			Console.WriteLine($"{path.Split('/').Last()}: size {bytes.Length}");

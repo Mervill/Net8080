@@ -53,7 +53,7 @@ namespace Net8080
         /// </summary>
         public bool PendingInterrupt { get; private set; }
 
-        public int StackPointer   { get; private set; }
+        public int StackPointer   { get; set; }
         public int ProgramCounter { get; set; }
         
         public bool CarryFlag  { get; private set; }
